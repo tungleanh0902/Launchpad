@@ -1,7 +1,24 @@
 [profile.default]
 src = "src"
+script = "script"
 out = "out"
+test = "test"
 libs = ["lib"]
+solc = "0.8.26"
+auto_detect_solc = false
+bytecode_hash = "none"
+evm_version = "cancun"           # See https://www.evmdiff.com/features?name=PUSH0&kind=opcode
+fuzz = { runs = 1_000 }
+gas_reports = ["*"]
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+parallel = true
+
+[profile.ci]
+fuzz = { runs = 200 }
+verbosity = 4
+
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
