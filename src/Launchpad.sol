@@ -52,6 +52,8 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     uint public nonce;
     address[] private participant;
     Factory private factory;
+    uint public fee_rate; // 10000/10000 = 100%
+    address public treasury;
 
     mapping(address => uint) public positionByUser;
 
@@ -69,9 +71,13 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         campaign.rate = _campaign.rate;
         campaign.is_overflow = _campaign.is_overflow;
 
+        treasury = _owner;
+
         amount = 0;
         pool = 0;
         nonce = 0;
+
+        fee_rate = 200; // 2%
 
         if (_campaign.time_end_phase_two < _campaign.time_start_phase_two) {
             revert InvalidTimestamp();
@@ -208,7 +214,12 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
 
         uint tmp_amount = amount - amount_base_token_to_be_claimed;
         uint tmp_pool = pool - amount_quote_token_to_be_refund;
-        TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, tmp_pool);
+
+        uint fee = tmp_pool * fee_rate / 10000;
+        uint amount_redeem = tmp_pool - fee;
+
+        TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, amount_redeem);
+        TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, amount_redeem);
         TransferHelper.safeTransfer(_campaign.base_token, msg.sender, tmp_amount);
 
         amount = tmp_amount;
@@ -247,6 +258,14 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         uint _base_amount = _quote_amount * _campaign.rate / 10000;
         _base_amount = convertDecimal(_base_amount, decimal_quote_token, decimal_base_token);
         return _base_amount;
+    }
+
+    function setTreasury(address _treasury) {
+        treasury = _treasury;
+    }
+
+    function setFeeRate(uint _fee_rate) {
+        fee_rate = _fee_rate;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
