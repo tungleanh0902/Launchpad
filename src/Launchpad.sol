@@ -260,11 +260,11 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         return _base_amount;
     }
 
-    function setTreasury(address _treasury) {
+    function setTreasury(address _treasury) external onlyOwner() {
         treasury = _treasury;
     }
 
-    function setFeeRate(uint _fee_rate) {
+    function setFeeRate(uint _fee_rate) external onlyOwner() {
         fee_rate = _fee_rate;
     }
 

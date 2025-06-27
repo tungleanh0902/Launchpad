@@ -17,10 +17,10 @@ contract CounterScript is BaseScript {
     Factory public factory;
     Launchpad public launchpad;
     function run() public broadcast {
-        // depoy_launchpad_impl();
+        depoy_launchpad_impl();
         // deploy_token_impl();
         // deployToken();
-        deploy_factory();
+        // deploy_factory();
     }
 
     function create_campaign() public {
