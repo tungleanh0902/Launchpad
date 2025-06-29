@@ -5,9 +5,11 @@ import {Test, console} from "forge-std/Test.sol";
 import {Launchpad} from "../src/Launchpad.sol";
 import {Factory} from "../src/Factory.sol";
 import {Token} from "../src/Token.sol";
+import {SmartAccountFactory} from "../src/SmartAccountFactory.sol";
+import {SmartAccount} from "../src/SmartAccount.sol";
 
 contract LaunchpadTest is Test {
-    // string public forkUrl = "https://eth-sepolia.public.blastapi.io";
+    string public forkUrl = "https://eth-sepolia.public.blastapi.io";
 
     Launchpad public launchpad;
     Token public token;
@@ -25,19 +27,20 @@ contract LaunchpadTest is Test {
     Token tokenB;
 
     function setUp() public {
-        // vm.selectFork(vm.createFork(forkUrl));
+        vm.selectFork(vm.createFork(forkUrl));
         vm.startPrank(signer);
         // tokenA = new Token("a", "a");
         // tokenB = new Token("b", "b");
 
-        launchpad = new Launchpad();
+        // launchpad = new Launchpad();
 
-        token = new Token();
+        // token = new Token();
 
-        test_deploy_factory();
-        test_clone_token();
+        // test_deploy_factory();
+        // test_clone_token();
 
-        clone_launchpad();
+        // clone_launchpad();
+        test_clone_smart_account();
     }
 
     function test_deploy_factory() public {
@@ -57,25 +60,36 @@ contract LaunchpadTest is Test {
     }
 
     function clone_launchpad() public {
-        Launchpad.Campaign memory cam = Launchpad.Campaign(
-            0x310daE0406aB7d009061d67Dc03A28dA15136be1,
-            0xF2cE390706Adc5C22a66570E744E5D4fE8FA88b4,
-            1760663445,
-            2750425500,
-            2760425500,
-            2770425500,
-            0x8C29102eDc3D2fF48f6dD48644D7858958233573,
-            100000,
-            true
-        );
-        clonedCampaign = factoryProxy.createCampaign(
+        // Launchpad.Campaign memory cam = Launchpad.Campaign(
+        //     0x310daE0406aB7d009061d67Dc03A28dA15136be1,
+        //     0xF2cE390706Adc5C22a66570E744E5D4fE8FA88b4,
+        //     1760663445,
+        //     2750425500,
+        //     2760425500,
+        //     2770425500,
+        //     0x8C29102eDc3D2fF48f6dD48644D7858958233573,
+        //     100000,
+        //     true
+        // );
+        // clonedCampaign = factoryProxy.createCampaign(
+        //     signer,
+        //     cam,
+        //     0,
+        //     "0x64de9eb4a87f5c32782b32c3f3c4ea813e90ff62727ac9a3e6e2627dcbe26cf0309df705068667a251c710538f75b6088ec793c502f630d11c81f39ec05736921b"
+        // );
+
+        // Launchpad(clonedCampaign).campaign();
+    }
+
+    function test_clone_smart_account() public {
+        SmartAccountFactory smartAccountFactoryProxy = SmartAccountFactory(address(0x7586Bc78EBd19908fc83Fd794Fa9dF2A871F234c));
+        address clonedSmartAccount = smartAccountFactoryProxy.createSmartAccount(
             signer,
-            cam,
-            0,
-            "0x64de9eb4a87f5c32782b32c3f3c4ea813e90ff62727ac9a3e6e2627dcbe26cf0309df705068667a251c710538f75b6088ec793c502f630d11c81f39ec05736921b"
+            signer,
+            signer
         );
 
-        Launchpad(clonedCampaign).campaign();
+        SmartAccount(clonedSmartAccount).tx_payer();
     }
 
     function test_clone_token() public {
