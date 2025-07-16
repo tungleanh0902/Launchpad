@@ -40,7 +40,7 @@ contract LaunchpadTest is Test {
         // test_clone_token();
 
         // clone_launchpad();
-        test_clone_smart_account();
+        // test_clone_smart_account();
     }
 
     function test_deploy_factory() public {
@@ -82,14 +82,23 @@ contract LaunchpadTest is Test {
     }
 
     function test_clone_smart_account() public {
-        SmartAccountFactory smartAccountFactoryProxy = SmartAccountFactory(address(0x7586Bc78EBd19908fc83Fd794Fa9dF2A871F234c));
-        address clonedSmartAccount = smartAccountFactoryProxy.createSmartAccount(
+        // Deploy the SmartAccount implementation
+        SmartAccount smartAccountImpl = new SmartAccount();
+        
+        // Deploy the SmartAccountFactory
+        SmartAccountFactory smartAccountFactory = new SmartAccountFactory();
+        
+        // Initialize the factory with the SmartAccount implementation
+        smartAccountFactory.initialize(address(smartAccountImpl), signer);
+        
+        // Create a smart account through the factory
+        address payable clonedSmartAccount = smartAccountFactory.createSmartAccount(
             signer,
             signer,
             signer
         );
 
-        SmartAccount(clonedSmartAccount).tx_payer();
+        SmartAccount(clonedSmartAccount).operator();
     }
 
     function test_clone_token() public {

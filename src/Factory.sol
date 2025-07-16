@@ -110,19 +110,19 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
             revert InvalidSignature();
         }
 
+        Launchpad.VestingPeriod[] memory _vesting_periods = new Launchpad.VestingPeriod[](2);
+        _vesting_periods[0] = Launchpad.VestingPeriod(0, 1);
+        _vesting_periods[1] = Launchpad.VestingPeriod(2, 3);
+        uint[] memory _vesting_percent = new uint[](2);
+        _vesting_percent[0] = 10000;
+        _vesting_percent[1] = 10000;
+
         Launchpad pool = Launchpad(address(campaignMasterContract).clone());
         pool.initialize(
             _system_owner,
             _campaign,
-            // _campaign_owner,
-            // _base_token,
-            // _time_start,
-            // _time_end,
-            // _time_start_phase_two,
-            // _time_end_phase_two,
-            // _quote_token,
-            // _rate,
-            // _is_overflow,
+            _vesting_periods,
+            _vesting_percent,
             address(this)
         );
 

@@ -32,7 +32,7 @@ contract SmartAccountFactory is OwnableUpgradeable, UUPSUpgradeable {
         address _tx_payer,
         address _user,
         address _hot_wallet
-    ) external payable returns (address) {
+    ) external payable returns (address payable) {
         SmartAccount smartAccountClone = SmartAccount(payable(address(smartAccountContract).clone()));
         smartAccountClone.initialize(
             _tx_payer,
@@ -43,7 +43,7 @@ contract SmartAccountFactory is OwnableUpgradeable, UUPSUpgradeable {
         smartAccount.push(address(smartAccountClone));
 
         emit CreateNewSmartAccount(_tx_payer, address(smartAccountClone), _user);
-        return address(smartAccountClone);
+        return payable(address(smartAccountClone));
     }
 
     function setSmartAccountContract(address _smartAccountContract) external onlyOwner {

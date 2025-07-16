@@ -4,14 +4,14 @@ pragma solidity ^0.8.20;
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract SmartAccount is PausableUpgradeable {
     
-    address public tx_payer;
     address public user;
     address public hot_wallet;
+    address public operator;
 
     uint public nonce;
 
@@ -19,14 +19,13 @@ contract SmartAccount is PausableUpgradeable {
     error InvalidInput();
 
     function initialize(
-        address _tx_payer,
+        address _operator,
         address _user,
         address _hot_wallet
     ) external initializer() {
-        tx_payer = _tx_payer;
         user = _user;
         hot_wallet = _hot_wallet;
-
+        operator = _operator;
         nonce = 0;
     }
 
@@ -36,16 +35,18 @@ contract SmartAccount is PausableUpgradeable {
     ) external {
         bytes32 message = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
-                abi.encodePacked(
+                abi.encode(
                     user,
                     _tokens,
                     nonce++
                 )
             )
         );
-        if (
-            !SignatureChecker.isValidSignatureNow(user, message, _user_signature)
-        ) {
+        
+        // Use ECDSA.recover for signature verification
+        address recoveredSigner = ECDSA.recover(message, _user_signature);
+        
+        if (recoveredSigner != user) {
             revert InvalidSignature();
         }
 
@@ -65,12 +66,12 @@ contract SmartAccount is PausableUpgradeable {
         uint _amount,
         address _receiver,
         bytes memory _user_signature,
-        bytes memory _tx_payer_signature
+        bytes memory _operator_signature
     ) external payable {
         uint current_nonce = nonce;
         bytes32 message_user = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
-                abi.encodePacked(
+                abi.encode(
                     user,
                     _token,
                     current_nonce
@@ -78,24 +79,24 @@ contract SmartAccount is PausableUpgradeable {
             )
         );
 
-        bytes32 message_tx_payer = MessageHashUtils.toEthSignedMessageHash(
+        bytes32 message_operator = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
-                abi.encodePacked(
-                    tx_payer,
+                abi.encode(
+                    operator,
                     _token,
                     current_nonce
                 )
             )
         );
 
-        current_nonce++;
-
         if (
-            !SignatureChecker.isValidSignatureNow(user, message_user, _user_signature) ||
-            !SignatureChecker.isValidSignatureNow(tx_payer, message_tx_payer, _tx_payer_signature)
+            ECDSA.recover(message_user, _user_signature) != user ||
+            ECDSA.recover(message_operator, _operator_signature) != operator
         ) {
             revert InvalidSignature();
         }
+
+        current_nonce++;
 
         if (_token == address(0)) {
             TransferHelper.safeTransferETH(_receiver, _amount);
@@ -104,5 +105,5 @@ contract SmartAccount is PausableUpgradeable {
         }
     }
 
-    // receive() external payable {}
+    receive() external payable {}
 }

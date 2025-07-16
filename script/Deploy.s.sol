@@ -9,6 +9,7 @@ import {Token} from "../src/Token.sol";
 import {SmartAccountFactory} from "../src/SmartAccountFactory.sol";
 import {SmartAccount} from "../src/SmartAccount.sol";
 import {BaseScript} from "./Base.s.sol";
+import {BasicToken} from "../src/BasicToken.sol";
 
 contract CounterScript is BaseScript {
     Token public token;
@@ -21,7 +22,7 @@ contract CounterScript is BaseScript {
     Factory public factory;
     Launchpad public launchpad;
     function run() public broadcast {
-        // depoy_launchpad_impl();
+        depoy_launchpad_impl();
         // deploy_token_impl();
         // deployToken();
         // deploy_factory();
@@ -29,7 +30,9 @@ contract CounterScript is BaseScript {
         // deploy_smart_account_impl();
         // deploy_smart_account_factory();
     
-        set_smart_account_impl();
+        // set_smart_account_impl();
+
+        // create_new_smart_account();
     }
 
     function create_campaign() public {
@@ -72,21 +75,32 @@ contract CounterScript is BaseScript {
 
     function set_smart_account_impl() public {
         SmartAccountFactory smartAccountFactoryProxy = SmartAccountFactory(address(0x7586Bc78EBd19908fc83Fd794Fa9dF2A871F234c));
-        smartAccountFactoryProxy.setSmartAccountContract(address(0xAa77DCe6d78FadE3dDc8d32A5caAce9edEE9D7D2));
+        smartAccountFactoryProxy.setSmartAccountContract(address(0x25fDD492de1170cbFECb18b2aaF8d823C88eC2B4));
     }
 
     function deployToken() public {
-        // {
-        //     // deploy token
-        //     address token = address(new Token("HVT", "HVT"));
-        // }
+        {
+            // deploy token
+            address token = address(new BasicToken("HVT", "HVT", 100000000000000000));
+        }
 
         // USDT: 0xF2cE390706Adc5C22a66570E744E5D4fE8FA88b4
         // HVT: 0x8C29102eDc3D2fF48f6dD48644D7858958233573
     }
+
+    function create_new_smart_account() public {
+        SmartAccountFactory smartAccountFactoryProxy = SmartAccountFactory(payable(address(0x7f25EA30BB19Def18F943C71Bc9DF73b3Bb20743)));
+        address payable clonedSmartAccount = smartAccountFactoryProxy.createSmartAccount(
+            signer,
+            signer,
+            signer
+        );
+
+        SmartAccount(clonedSmartAccount).operator();
+    }
 }
 // forge script ./script/Deploy.s.sol --slow --rpc-url https://eth-sepolia.public.blastapi.io --etherscan-api-key 4EWVY8CBI6YQCA5CDK9W5KVP3Q95IG2JVF --broadcast --verify -vvvv
-
+// forge script ./script/Deploy.s.sol --slow --rpc-url https://arbitrum-sepolia-rpc.publicnode.com --etherscan-api-key E8F7DFHQI2U1PVKPTYYEZ2XQWSDDTIWWTG --broadcast --verify -vvvv
 
 // token impl contract: 0x02A84B8A8a885461f689ea520F81DeD056f3a418.
 // launchpad impl contract: 0x262844440d94794C5946DCaf2e637ba8b294AF3E
