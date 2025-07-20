@@ -77,18 +77,11 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
     function createCampaign(
         address _system_owner,
         Launchpad.Campaign memory _campaign,
-        // address _campaign_owner,
-        // address _base_token,
-        // uint256 _time_start,
-        // uint256 _time_end,
-        // uint256 _time_start_phase_two,
-        // uint256 _time_end_phase_two,
-        // address _quote_token,
-        // uint256 _rate,
         uint256 _camapaign_id,
-        // bool _is_overflow,
-        bytes memory _signature
-    ) external payable {
+        bytes memory _signature,
+        Launchpad.VestingPeriod[] memory _vesting_periods,
+        uint[] memory _vesting_percent
+    ) external payable returns (address) {
         bytes32 message = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
                 abi.encodePacked(
@@ -106,16 +99,9 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
         );
         if (
             !SignatureChecker.isValidSignatureNow(signer, message, _signature)
-        ) {
+        ) {  
             revert InvalidSignature();
         }
-
-        Launchpad.VestingPeriod[] memory _vesting_periods = new Launchpad.VestingPeriod[](2);
-        _vesting_periods[0] = Launchpad.VestingPeriod(0, 1);
-        _vesting_periods[1] = Launchpad.VestingPeriod(2, 3);
-        uint[] memory _vesting_percent = new uint[](2);
-        _vesting_percent[0] = 10000;
-        _vesting_percent[1] = 10000;
 
         Launchpad pool = Launchpad(address(campaignMasterContract).clone());
         pool.initialize(
@@ -143,6 +129,7 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
         }
 
         emit DeployCampaign(address(pool), _camapaign_id);
+        return address(pool);
     }
 
     function setCampaignMasterContract(address _campaignMasterContract) external onlyOwner {
