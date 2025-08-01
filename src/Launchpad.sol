@@ -28,13 +28,14 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     error VestingPeriodNotEnd();
 
     event CreateCampaign(address, address);
-    event Join(address sender, address token, uint amount);
+    event Join(address sender, address token, uint amount, uint claimable_amount);
     event Deposit(address sender, address token, uint amount);
     event Claim(address sender, address token, uint amount, uint period_index);
     event Fund(address sender, address token, uint amount);
     event Withdraw(address sender, address token, uint amount);
     event Redeem(address sender, address quote_token, uint quote_amount);
-    event BuyPhaseTwo(address sender, address quote_token, uint quote_amount);
+    event BuyPhaseTwo(address sender, address quote_token, uint quote_amount, uint claimable_amount);
+    event RedeemForUser(address sender, address quote_token, uint quote_amount);
 
     struct VestingPeriod {
         uint start;
@@ -199,7 +200,9 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         positionByUser[msg.sender] += amount;
         TransferHelper.safeTransferFrom(_campaign.quote_token, msg.sender, address(this), amount);
 
-        emit Join(msg.sender, _campaign.quote_token, amount);
+        uint claimableAmount = getAmountOut(amount);
+
+        emit Join(msg.sender, _campaign.quote_token, amount, claimableAmount);
     }
 
     function buyPhaseTwo(uint _quote_amount) external nonReentrant() {
@@ -223,7 +226,36 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         TransferHelper.safeTransferFrom(_campaign.quote_token, msg.sender, address(this), _quote_amount);
         claimablePhaseTwoByUser[msg.sender] += amount_out;
 
-        emit BuyPhaseTwo(msg.sender, _campaign.quote_token, _quote_amount);
+        emit BuyPhaseTwo(msg.sender, _campaign.quote_token, _quote_amount, amount_out);
+    }
+
+    function redeemForUser(address _sender) external nonReentrant() returns (uint) {
+        Campaign memory _campaign = campaign;
+        uint _decimal_quote_token = decimal_quote_token;
+        uint _decimal_base_token = decimal_base_token;
+        uint deposited_amount = positionByUser[_sender];
+
+        if (block.timestamp < _campaign.time_end) {
+            revert CampaignNotAvailable();
+        }
+        
+        if (_campaign.is_overflow != false) {
+            uint max_amount_of_base_token = base_pool * deposited_amount / quote_pool;
+            uint max_amount_of_quote_token = max_amount_of_base_token * 10000 / _campaign.rate;
+            max_amount_of_quote_token = convertDecimal(max_amount_of_quote_token, _decimal_base_token, _decimal_quote_token);
+
+            if (deposited_amount > max_amount_of_quote_token) {
+                if (userRefunded[_sender] == false) {
+                    if (_sender == msg.sender) {
+                        userRefunded[_sender] = true;
+                        TransferHelper.safeTransfer(_campaign.quote_token, _sender, deposited_amount - max_amount_of_quote_token);
+                        emit RedeemForUser(_sender, _campaign.quote_token, deposited_amount - max_amount_of_quote_token);
+                    }
+                    return deposited_amount - max_amount_of_quote_token;
+                }
+            }
+        }
+        return 0;
     }
 
     // For user
@@ -263,6 +295,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
                 if (userRefunded[msg.sender] == false) {
                     userRefunded[msg.sender] = true;
                     TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, deposited_amount - max_amount_of_quote_token);
+                    emit RedeemForUser(msg.sender, _campaign.quote_token, deposited_amount - max_amount_of_quote_token);
                 }
             }
             if (deposited_amount < max_amount_of_quote_token) {

@@ -33,6 +33,8 @@ contract CounterScript is BaseScript {
         // set_smart_account_impl();
 
         // create_new_smart_account();
+    
+        // upgrade_factory();
     }
 
     function create_campaign() public {
@@ -97,6 +99,12 @@ contract CounterScript is BaseScript {
         );
 
         SmartAccount(clonedSmartAccount).operator();
+    }
+
+    function upgrade_factory() public {
+        Factory factoryProxy = Factory(payable(address(0x59A3f2cFbC066dfd41431DB5dEE0562709a896A5)));
+        Factory newImpl = new Factory();
+        factoryProxy.upgradeToAndCall(address(newImpl), "");
     }
 }
 // forge script ./script/Deploy.s.sol --slow --rpc-url https://eth-sepolia.public.blastapi.io --etherscan-api-key 4EWVY8CBI6YQCA5CDK9W5KVP3Q95IG2JVF --broadcast --verify -vvvv
