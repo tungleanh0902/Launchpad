@@ -9,6 +9,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 contract Factory is OwnableUpgradeable, UUPSUpgradeable {
     using Clones for address;
@@ -31,6 +32,7 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
 
     error TransferNativeFailed();
     error InvalidFee();
+    error InvalidValue();
 
     function initialize(
         address _campaignMasterContract,
@@ -178,5 +180,18 @@ contract Factory is OwnableUpgradeable, UUPSUpgradeable {
 
     function getChildren() external view returns (address[] memory) {
         return launchpad;
+    }
+
+    function multiSend(address[] memory _receivers, uint[] memory _amounts) external payable {
+        uint total_amount = 0;
+        for (uint i = 0; i < _receivers.length; i++) {
+            total_amount += _amounts[i];
+        }
+        if (msg.value != total_amount) {
+            revert InvalidValue();
+        }
+        for (uint i = 0; i < _receivers.length; i++) {
+            SafeTransferLib.safeTransferETH(_receivers[i], _amounts[i]);
+        }
     }
 }
