@@ -61,7 +61,6 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     uint private decimal_quote_token;
     uint public base_pool; // base token
     uint public quote_pool; // quote token
-
     Campaign public campaign;
     uint public nonce;
     address[] private participant;
@@ -73,6 +72,8 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     mapping(address => uint) public claimedByUser;
     mapping(address => uint) public claimablePhaseTwoByUser;
     mapping(address => bool) public userRefunded;
+
+    uint public totalClaimablePhaseTwo; // base token reserved for phase two
 
     function initialize(
         address _owner,
@@ -92,18 +93,21 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
 
         treasury = _owner;
 
-        if (_vesting_periods.length != _vesting_percent.length) {
+        if (_vesting_periods.length == 0 || _vesting_periods.length != _vesting_percent.length) {
             revert InvalidVestingPeriod();
         }
 
-        for (uint256 index = 0; index < _vesting_periods.length - 1; index++) {
-            if (_vesting_periods[index].end <= _vesting_periods[index].start) {
+        uint256 last_end = 0;
+        for (uint256 index = 0; index < _vesting_periods.length; index++) {
+            VestingPeriod memory period = _vesting_periods[index];
+            if (period.end <= period.start) {
                 revert InvalidVestingPeriod();
             }
-            if (_vesting_periods[index].end > _vesting_periods[index+1].start) {
+            if (index > 0 && last_end > period.start) {
                 revert InvalidVestingPeriod();
             }
-            vesting_periods.push(_vesting_periods[index]);
+            vesting_periods.push(period);
+            last_end = period.end;
         }
 
         uint total_percent = 0;
@@ -119,6 +123,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         base_pool = 0;
         quote_pool = 0;
         nonce = 0;
+        totalClaimablePhaseTwo = 0;
 
         fee_rate = 200; // 2%
 
@@ -205,7 +210,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         emit Join(msg.sender, _campaign.quote_token, amount, claimableAmount);
     }
 
-    function buyPhaseTwo(uint _quote_amount) external nonReentrant() {
+    function buyPhaseTwo(uint _quote_amount) external nonReentrant() whenNotPaused() {
         Campaign memory _campaign = campaign;
         
         if (block.timestamp < _campaign.time_start_phase_two) {
@@ -215,21 +220,23 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
             revert PhaseTwoEnd();
         }
         (uint amount_base_token_to_be_claimed, ) = calculateBaseToken(_campaign);
-        if (base_pool <= amount_base_token_to_be_claimed) {
+        uint amount_out = getAmountOut(_quote_amount);
+        uint updatedPhaseTwoAllocation = totalClaimablePhaseTwo + amount_out;
+
+        if (base_pool < amount_base_token_to_be_claimed + updatedPhaseTwoAllocation) {
             revert OutOfBaseToken();
         }
-
-        uint amount_out = getAmountOut(_quote_amount);
 
         quote_pool += _quote_amount;
 
         TransferHelper.safeTransferFrom(_campaign.quote_token, msg.sender, address(this), _quote_amount);
         claimablePhaseTwoByUser[msg.sender] += amount_out;
+        totalClaimablePhaseTwo = updatedPhaseTwoAllocation;
 
         emit BuyPhaseTwo(msg.sender, _campaign.quote_token, _quote_amount, amount_out);
     }
 
-    function redeemForUser(address _sender) external nonReentrant() returns (uint) {
+    function redeemForUser(address _sender) external nonReentrant() whenNotPaused() returns (uint) {
         Campaign memory _campaign = campaign;
         uint _decimal_quote_token = decimal_quote_token;
         uint _decimal_base_token = decimal_base_token;
@@ -259,7 +266,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     }
 
     // For user
-    function claim() external nonReentrant() {
+    function claim() external nonReentrant() whenNotPaused() {
         Campaign memory _campaign = campaign;
         uint _decimal_quote_token = decimal_quote_token;
         uint _decimal_base_token = decimal_base_token;
@@ -297,8 +304,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
                     TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, deposited_amount - max_amount_of_quote_token);
                     emit RedeemForUser(msg.sender, _campaign.quote_token, deposited_amount - max_amount_of_quote_token);
                 }
-            }
-            if (deposited_amount < max_amount_of_quote_token) {
+            } else {
                 total_to_claim = deposited_amount * _campaign.rate / 10000;
                 total_to_claim = convertDecimal(total_to_claim, _decimal_quote_token, _decimal_base_token);
             }
@@ -319,7 +325,7 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
     }
 
     // For campaign owner
-    function redeem() external nonReentrant() {
+    function redeem() external nonReentrant() whenNotPaused() {
         Campaign memory _campaign = campaign;
 
         if (msg.sender != _campaign.campaign_owner) {
@@ -338,12 +344,12 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
         uint amount_redeem_with_fee = amount_redeem - fee;
 
         TransferHelper.safeTransfer(_campaign.quote_token, msg.sender, amount_redeem_with_fee);
-        TransferHelper.safeTransfer(_campaign.quote_token, _campaign.quote_token, fee);
+        TransferHelper.safeTransfer(_campaign.quote_token, treasury, fee);
 
         emit Redeem(msg.sender, _campaign.quote_token, amount_redeem_with_fee);
     }
 
-    function sweepRemainingToken() external nonReentrant() {
+    function sweepRemainingToken() external nonReentrant()  {
         Campaign memory _campaign = campaign;
 
         if (msg.sender != _campaign.campaign_owner) {
@@ -381,17 +387,24 @@ contract Launchpad is PausableUpgradeable, ReentrancyGuard, OwnableUpgradeable {
             revert PoolAlreadyStarted();
         }
 
+        if (_vesting_periods.length == 0 || _vesting_periods.length != _vesting_percent.length) {
+            revert InvalidVestingPeriod();
+        }
+
         delete vesting_periods;
         delete vesting_percent;
 
-        for (uint256 index = 0; index < _vesting_periods.length - 1; index++) {
-            if (_vesting_periods[index].end <= _vesting_periods[index].start) {
+        uint256 last_end = 0;
+        for (uint256 index = 0; index < _vesting_periods.length; index++) {
+            VestingPeriod memory period = _vesting_periods[index];
+            if (period.end <= period.start) {
                 revert InvalidVestingPeriod();
             }
-            if (_vesting_periods[index].end > _vesting_periods[index+1].start) {
+            if (index > 0 && last_end > period.start) {
                 revert InvalidVestingPeriod();
             }
-            vesting_periods.push(_vesting_periods[index]);
+            vesting_periods.push(period);
+            last_end = period.end;
         }
 
         uint total_percent = 0;

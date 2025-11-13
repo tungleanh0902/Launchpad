@@ -107,7 +107,7 @@ contract CounterScript is BaseScript {
         factoryProxy.upgradeToAndCall(address(newImpl), "");
     }
 }
-// forge script ./script/Deploy.s.sol --slow --rpc-url https://eth-sepolia.public.blastapi.io --etherscan-api-key 4EWVY8CBI6YQCA5CDK9W5KVP3Q95IG2JVF --broadcast --verify -vvvv
+// forge script ./script/Deploy.s.sol --slow --rpc-url https://ethereum-sepolia.rpc.subquery.network/public --etherscan-api-key 4EWVY8CBI6YQCA5CDK9W5KVP3Q95IG2JVF --broadcast --verify -vvvv
 // forge script ./script/Deploy.s.sol --slow --rpc-url https://arbitrum-sepolia-rpc.publicnode.com --etherscan-api-key E8F7DFHQI2U1PVKPTYYEZ2XQWSDDTIWWTG --broadcast --verify -vvvv
 
 // token impl contract: 0x02A84B8A8a885461f689ea520F81DeD056f3a418.
